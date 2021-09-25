@@ -12,7 +12,7 @@ conda activate 01_intro_ml
 Install the following packages
 
 ```
-pip install matplotlib numpy imageio scikit-learn scikit-image pandas jupyter
+pip install requirements.txt
 ```
 
 Download data for use in this exercise by using `wget`
