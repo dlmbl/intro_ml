@@ -12,7 +12,7 @@ conda activate 01_intro_ml
 Install the following packages
 
 ```
-pip install requirements.txt
+pip install -r requirements.txt
 ```
 
 Download data for use in this exercise by using `wget`
