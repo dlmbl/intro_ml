@@ -5,7 +5,7 @@
 Create a `conda` environment for this exercise and activate it:
 
 ```
-conda create -n 01_intro_ml python==3.8
+conda create -n 01_intro_ml python=3.8
 conda activate 01_intro_ml
 ```
 
