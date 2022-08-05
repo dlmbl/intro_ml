@@ -6,3 +6,4 @@ scikit-image
 jupyter
 tensorflow
 tensorflow_addons
+pandas
