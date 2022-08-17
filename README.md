@@ -15,11 +15,12 @@ Install the following packages
 pip install -r requirements.txt
 ```
 
-Download data for use in this exercise by using `wget`
+Download data for use in this exercise by running the bash script `data-download.sh`
+
 ```
-wget https://storage.googleapis.com/datasets-spring2021/cats-and-dogs-bw.npz
+sh data-download.sh
 ```
-or simply clicking on this [link](https://storage.googleapis.com/datasets-spring2021/cats-and-dogs-bw.npz) to initialize the download.
+
 
 Finally launch a jupyter notebook
 
