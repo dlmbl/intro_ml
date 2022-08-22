@@ -7,3 +7,4 @@ jupyter
 tensorflow
 tensorflow_addons
 pandas
+tqdm
