@@ -9,6 +9,8 @@ conda create -n 01_intro_ml python=3.8
 conda activate 01_intro_ml
 ```
 
+Make sure that you are inside of the `intro_ml` folder by using the `cd` command to change directories if needed.
+
 Install the following packages
 
 ```
