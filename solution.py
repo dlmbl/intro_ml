@@ -687,7 +687,7 @@ setattr(LinearClassifier, "fit", fit)
 We're ready to train our model!
 """
 
-# %% jupyter={"outputs_hidden": true}
+# %%
 # %%time
 lc = LinearClassifier()
 loss = lc.fit(X_train, y_train, n_epochs=50, batch_size=16)
@@ -719,7 +719,6 @@ def smooth(scalars, weight):
 fig, ax = plt.subplots()
 ax.plot(smooth(loss, 0.9))
 ax.set_ylabel("loss")
-ax.set_xlabel("batch")
 
 # %% [markdown] id="Hh-GWNb-3x1m"
 """
@@ -1029,7 +1028,7 @@ Configure the `RandomForestClassifier` below with a set of parameters according 
 ######## To Do ###########
 ##########################
 
-random_rf = sklearn.ensemble.RandomForestClassifier(
+random_rfc = sklearn.ensemble.RandomForestClassifier(
     # Add your parameter configuration here
 )
 
@@ -1092,16 +1091,16 @@ Filters can produce a variety of effects on images depending on how the kernel i
 """
 
 # %%
-im = X[np.random.randint(X.shape[0]), ..., 0]
+im = X_data[np.random.randint(X_data.shape[0]), ..., 0]
 fig, ax = plt.subplots(1, 3, figsize=(10, 4))
 
-ax[0].imshow(im)
+ax[0].imshow(im, cmap="Greys_r")
 ax[0].set_title("Original")
 
-ax[1].imshow(skimage.filters.gaussian(im))
+ax[1].imshow(skimage.filters.gaussian(im), cmap="Greys_r")
 ax[1].set_title("Gaussian")
 
-ax[2].imshow(skimage.filters.laplace(im))
+ax[2].imshow(skimage.filters.laplace(im), cmap="Greys_r")
 ax[2].set_title("Laplace")
 
 # %% [markdown]
@@ -1119,14 +1118,14 @@ from inspect import getmembers, isfunction
 """
 <div class="alert alert-block alert-info">
 
-#### Task 3.1
+#### Task 5.1
 
 Test a variety of the available filters from the `skimage` module. Whenever you are making a modification to an image, you should check the results to make sure that errors are not introduced while generating the transformation. The easiest way to plot an image is just to run `plt.imshow(image)`.
 
 Ultimately we are going to use model performance to select the best features for our classification task, but you should be familiar with the output of any filters that you are using. The goal of this next section is to identify a set of candidate filters from which one will be chosen that you think will lead to better classification results on the two classes we are trying to distinguish.
 
 Keep the following things you may want to keep in mind as you approach this problem
-- Look at several randomly selected images from the two classes when you are testing a filter
+- Look at several randomly selected images from the different classes when you are testing a filter
 - Explore the effect of parameters available for each filter
 
 **Challenge**: While this task could be approached by testing filters one at a time, consider writing a for loop to rapidly test filters in an automated fashion.
@@ -1186,11 +1185,11 @@ First we will try applying each filter to a sample image. By setting up the for 
 
 # %% tags=["solution"]
 # Select random image
-im = X[np.random.randint(X.shape[0]), ..., 0]
+im = X_data[np.random.randint(X_data.shape[0]), ..., 0]
 
 # Plot original image
 fig, ax = plt.subplots(figsize=(3, 3))
-plt.imshow(im)
+plt.imshow(im, cmap="Greys_r")
 ax.set_title("Original")
 
 # Plot filtered images
@@ -1198,7 +1197,7 @@ fig, ax = plt.subplots(5, 5, figsize=(20, 20))
 for i, (name, fxn) in enumerate(filters.items()):
     ax.flatten()[i].set_title(name)
     try:
-        ax.flatten()[i].imshow(fxn(im))
+        ax.flatten()[i].imshow(fxn(im), cmap="Greys_r")
     except Exception as e:
         print("Skipping {}: {}".format(name, e))
 
@@ -1222,11 +1221,11 @@ filter_params = [
 
 # %% tags=["solution"]
 # Select random image
-im = X[np.random.randint(X.shape[0]), ..., 0]
+im = X_data[np.random.randint(X_data.shape[0]), ..., 0]
 
 # Plot original image
 fig, ax = plt.subplots(figsize=(3, 3))
-plt.imshow(im)
+plt.imshow(im, cmap="Greys_r")
 ax.set_title("Original")
 
 # Plot filtered images
@@ -1244,7 +1243,7 @@ for config in filter_params:
                 kwargs[k] = v[i]
 
         # Plot filtered image
-        ax[i].imshow(config["function"](im, **kwargs))
+        ax[i].imshow(config["function"](im, **kwargs), cmap="Greys_r")
         ax[i].set_title(str(kwargs))
 
 
@@ -1268,76 +1267,123 @@ nsamples = 3
 
 # Take a random sampling from each class
 idxs, classes = [], []
-for c in [0, 1]:
-    xx = X[y == c]
+for c in np.unique(y_data):
+    xx = X_data[y_data == c]
     samples = np.random.randint(xx.shape[0], size=(nsamples,))
     idxs.extend(samples)
     classes.extend([c] * nsamples)
 
 for name, fxn in candidates.items():
-    fig, ax = plt.subplots(1, nsamples * 2, figsize=(20, 5))
+    fig, ax = plt.subplots(1, nsamples * 7, figsize=(20, 5))
     ax[0].set_ylabel(name)
 
     for i, (c, idx) in enumerate(zip(classes, idxs)):
-        ax[i].imshow(fxn(X[idx, ..., 0]))
+        ax[i].imshow(fxn(X_data[idx, ..., 0]), cmap="Greys_r")
         ax[i].set_title(c)
 
 # %% [markdown]
 """
-<div class="alert alert-block alert-success">
-    
-## Checkpoint ?
-    
-Please 👍 the "Checkpoint 2" slack thread when you reach this checkpoint.
-
-We'll discuss as a group which filters seem like they may be most effective at distinguishing our two classes. Please be prepared with your top two or three candidates. 
-
-*Bonus:* Collect screenshots of your filtering results to share with the group. Look out for a slack message for instructions on how to submit images.
-    
-</div>
-"""
-
-# %% [markdown]
-"""
 <div class="alert alert-block alert-info">
-
-## Task ??
     
-    todo need to rewrite
-    
-Starting with a few of your top choices for filters, train a model on each filter variation and compare the results. Again as an extra challenge, you can write a for loop to automate this process.
+#### Task 5.2
 
-You will roughly need to follow these steps:
-- Create a new version of `X` and `y` with the filter applied. Make sure that you are working on a new copy of the original data each time you apply a filter. You can use `copy.deepcopy` to create a new copy of an array.
-- Create a new `DatasetBuilder` object with the filtered images
-    ```
-    with tf.device('CPU:0'):
-        dataset = build_dataset(X, y, batch_size=64, seed=seed, train_size=train_size)
-    ```
-- Train a model using the functions `create_linear_classifier` and `train_model` that are defined in an earlier section of the notebook
-- Benchmark and collect the metrics for each model variant 
+Your challenge now is to combine the features that you have explored with one of the two models we've trained so far. It's up to you to select a set of features and model design that you think will produce the best results. We'll compare results as a group at the end.
+    
+As you approach this task, you are encouraged to copy/paste code from earlier in the exercise and modify it as needed. Here's a rough outline of what you will need to do:
+- Build a new dataset with your selected filters. The easiest way to combine data from multiple filters is to concatenate images together along the axis corresponding to the image size. For example if our initial training data has the shape `(n_images, image_width * image_width)`, the new data will have the shape `(n_images, n_filters * image_width * image_width)`. Here's a code snippet to get you started:
+```python
+# Select single image/channel
+im = X_data[10, ..., 0]
+gaus = skimage.filters.gaussian(im)
+lapl = skimage.filters.laplace(im)
+
+# Flatten each image
+im = np.reshape(im, (image_width * image_width))
+gaus = np.reshape(gaus, (image_width * image_width))
+lapl = np.reshape(lapl, (image_width * image_width))
+
+# Concatenate together
+ims = np.concatenate([im, gaus, lapl], axis=-1)
+```
+
+- Finish assembling your dataset by splitting into train/test split (`sklearn.model_selection.train_test_split`), balancing classes (`imblearn.over_sampling.RandomOverSampler`) and one hot encoding (`sklearn.label_processing.LabelBinarizer`)
+    
+- Configure your model. If you choose the `LinearClassifier` make sure you update the `image_size` parameter to match the dimensions of your new dataset.
+    
+- Train and evaluate the results
 </div>
-"""
-
-# %% [markdown]
-"""
-<div class="alert alert-block alert-success">
-    
-## Checkpoint
-    
-    todo
-    
-Please 👍 the "Checkpoint 2" slack thread when you reach this checkpoint.
-
-We'll discuss as a group what filters worked best to distinguish between the two classes. When you're ready, you can submit your best model to this [google form](https://docs.google.com/forms/d/e/1FAIpQLSfVblJCnprXct0IrS87cGw4ijpH2h6bKvcXqj7RNraMrSP3PA/viewform?usp=sf_link). 
-    
-</div>
-
-## Bonus
-
-If you have extra time, try one of the following challenges:
-- How does your selected filter perform on another pair of classes in this dataset?
-- Can you automate the search for the top performing filter by writing a function that ultimately reports the top performer?
 """
 
 # %%
+# Generate filtered data
+frangi = np.stack([skimage.filters.frangi(im) for im in X_data[..., 0]])
+sobel = np.stack([skimage.filters.sobel(im) for im in X_data[..., 0]])
+
+Xs = [
+    np.reshape(x, (-1, image_width * image_width))
+    for x in [X_data[..., 0], frangi, sobel]
+]
+X_filtered = np.concatenate(Xs, axis=-1)
+X_filtered.shape
+
+# %% id="hLQUiSoj3x1j"
+# Split the dataset into training, validation, and testing splits
+seed = 10
+train_size = 0.8
+X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
+    X_flat, y_data, train_size=train_size, random_state=seed
+)
+
+# %%
+# Balance classes using the same function as above
+X_train, y_train = balance_classes(X_train, y_train)
+X_test, y_test = balance_classes(X_test, y_test)
+print(f"Train shape: X {X_train.shape}, y {y_train.shape}")
+print(f"Test shape: X {X_test.shape}, y {y_test.shape}")
+
+# %%
+# One hot encoding using the same LabelBinarizer object
+y_train = lb.transform(y_train)
+y_test = lb.transform(y_test)
+
+# %%
+# %%time
+# Initialize linear classifier with the new data shape
+lcf = LinearClassifier(image_size=X_train.shape[1])
+loss = lcf.fit(X_train, y_train, n_epochs=50, batch_size=16)
+
+# %%
+fig, ax = plt.subplots()
+ax.plot(smooth(loss, 0.9))
+ax.set_ylabel("loss")
+
+# %%
+# Generate predictions and metrics for training data
+y_pred = lcf.predict(X_train)
+# Convert from one hot encoding to original class labels
+y_pred = np.argmax(y_pred, axis=-1)
+y_true = np.argmax(y_train, axis=-1)
+lcf_train_metrics = benchmark_performance(y_true, y_pred)
+
+# Generate predictions and metrics for test data
+y_pred = lcf.predict(X_test)
+# Convert from one hot encoding to original class labels
+y_pred = np.argmax(y_pred, axis=-1)
+y_true = np.argmax(y_test, axis=-1)
+lcf_test_metrics = benchmark_performance(y_true, y_pred)
+
+fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+
+plot_metrics(lcf_train_metrics, "Filtered Linear Classifier Training", ax[0])
+plot_metrics(lcf_test_metrics, "Filtered Linear Classifier Testing", ax[1])
+
+# %% [markdown]
+"""
+<div class="alert alert-block alert-success">
+    
+## Checkpoint 5
+    
+Share the results of your model on the spreadsheet (see Element for the link) and we'll compare results as a group.
+</div>
+
+"""
