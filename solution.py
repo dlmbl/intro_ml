@@ -43,6 +43,8 @@ We are going to look at a collection of images of Jurkat cells published in the 
 """
 <div class="alert alert-danger">
 Set your python kernel to <code>01_intro_ml</code>
+
+![](kernel-change.png)
 </div>
 """
 
@@ -794,6 +796,15 @@ For each of the 4 metrics above, describe in your own words what this metric tel
 </div>
 """
 
+# %% [markdown]
+"""
+*Write your answers here*
+- Recall
+- Precision
+- F1 Score
+- Confusion Matrix
+"""
+
 # %% [markdown] tags=["solution"]
 r"""
 - Recall -- Measures the ratio of true positives to the total positives that the model should have identified. Captures the ability of the model to find all positive samples. $$\frac{\texttt{true positive}}{\texttt{true positive} + \texttt{false negative}}$$
@@ -1385,5 +1396,4 @@ plot_metrics(lcf_test_metrics, "Filtered Linear Classifier Testing", ax[1])
     
 Share the results of your model on the spreadsheet (see Element for the link) and we'll compare results as a group.
 </div>
-
 """
