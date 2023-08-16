@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.7
+#       jupytext_version: 1.15.0
 #   kernelspec:
 #     display_name: Python [conda env:01_intro_ml]
 #     language: python
@@ -30,7 +30,7 @@ In this exercise, we are going to follow the basic workflow that is the foundati
 2. Model configuration and training
 3. Model evaluation
 
-Along the way, we will implement a linear classier, test a random forest classifier and explore the role of feature engineering in traditional machine learning. 
+Along the way, we will implement a linear classifier, test a random forest classifier and explore the role of feature engineering in traditional machine learning. 
 
 We are going to look at a collection of images of Jurkat cells published in the Broad Bioimage Collection ([BBBC048](https://bbbc.broadinstitute.org/BBBC048)). The cells were fixed and stained with PI (propidium iodide) to quantify DNA content and a MPM2 (mitotic protein monoclonal #2) antibody to identify mitotic cells. The goal is to predict the stage of the cell cycle from images like those shown below.
 
@@ -45,6 +45,8 @@ We are going to look at a collection of images of Jurkat cells published in the 
 Set your python kernel to <code>01_intro_ml</code>
 
 ![](kernel-change.png)
+
+TODO kernel image missing
 </div>
 """
 
@@ -68,6 +70,10 @@ import skimage
 import sklearn
 import tqdm.auto
 
+# Pretty tqdm progress bars
+# ! jupyter nbextension enable --py widgetsnbextension
+# TODO clear output of all cells before committing, I see warnings from /Users/morganschwartz
+
 # %% [markdown] id="rZ2jTjsd3x1g"
 """
 ## The supervised machine learning workflow
@@ -90,23 +96,23 @@ During the initial setup of this exercise, we downloaded the data and unzipped t
 
 # %%
 data_dir = "data/CellCycle"
-os.listdir(data_dir)
+sorted(os.listdir(data_dir))
 
 # %% [markdown]
 """
-The command above should generate the following output. Order does not matter, but you should see the same files and folders. If you see something different, please check that the `setup.sh` script ran correctly.
+The command above should generate the following output. If you see something different, please check that the `setup.sh` script ran correctly.
 ```
-['img.lst~',
+['66.lst~',
  'Anaphase',
- 'Prophase',
- 'img.lst',
- 'S',
- '66.lst~',
  'G1',
- 'Metaphase',
  'G2',
- 'Telophase']
- ```
+ 'Metaphase',
+ 'Prophase',
+ 'S',
+ 'Telophase',
+ 'img.lst',
+ 'img.lst~']
+```
  
 The metadata for each file is stored in `img.lst` so we will first load this information to inform how we load the rest of the dataset.
 """
@@ -171,7 +177,7 @@ ax[2].set_title("MPM2")
 
 # %% [markdown]
 """
-Now we can load all of the images into the dataset. We will want to load each of the three channels for each image and create an array with the shape (w, h, ch). Then we will combine all images in the dataset into a single array.
+Now we can load all of the images into a dataset. We will want to load each of the three channels for each image and create an array with the shape (w, h, ch). Then we will combine all images in the dataset into a single array.
 """
 
 # %%
@@ -204,6 +210,8 @@ print("y shape:", y_data.shape)
 # %% [markdown] id="WG4mmJ173x1h"
 """
 In the previous cell, you probably observed that there are 4 dimensions rather than the 3 you might have been expecting. This is because while each image is (66, 66, 3), the full dataset has many images. The different images are stacked along the first dimension. The full size of the training images is (# images, 66, 66, 3) - the first dimension is often called the batch dimension.
+
+TODO I'm not sure if it makes sense to talk about `batch` already here
 """
 
 # %% [markdown]
@@ -222,9 +230,13 @@ for c in np.unique(y_data):
     ax[0].set_ylabel(class_lut[c])
 
     # Plot each of the three channels
-    for j, ch in enumerate(["phase", "PI", "MPM2"]):
+    for j, ch in enumerate(["phase contrast", "PI", "MPM2"]):
         ax[j].imshow(X_data[i, ..., j], cmap="Greys_r")
         ax[j].set_title(ch)
+        ax[j].xaxis.set_tick_params(labelbottom=False)
+        ax[j].yaxis.set_tick_params(labelleft=False)
+        ax[j].set_xticks([])
+        ax[j].set_yticks([])
 
 # %% [markdown] id="2D_YhVir3x1i"
 """
@@ -252,14 +264,23 @@ print(X_flat.shape)
 
 #### Task 1.1
     
-Let's check the balance of classes in this dataset. There are at least three ways you could do this. Pick one to try.
-    
-- Use matplotlib to create a histogram (`plt.hist`, [see docs](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.hist.html))
+Let's check the balance of classes in this dataset (stored in `y_data`). There are at least three ways you could do this. Pick one to try.
+
 - Count the number of items in each class using `np.count_nonzero` ([see docs](https://numpy.org/doc/stable/reference/generated/numpy.count_nonzero.html)).
 - Use the `Counter` object which is imported from `collections` ([see docs](https://docs.python.org/3/library/collections.html#collections.Counter))
+- Use matplotlib to create a histogram (`plt.hist`, [see docs](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.hist.html))
 
 </div>
 """
+
+# %%
+# TODO what about np.unique(y_data, return_counts=True)?
+
+# %%
+# TODO A histogram for int values looks weird. What about plt.bar(*np.unique(y_data, return_counts=True), log=True)?
+
+# %%
+Counter(y_data)
 
 # %%
 ##########################
@@ -297,7 +318,7 @@ This dataset is highly inbalanced so we will want to correct the class balance b
 # %% [markdown] id="l2yrGjOL3x1j"
 """
 ### Split the training dataset into training and testing datasets
-How do we know how well our model is doing? A common practice to evaluate models is to evaluate them on splits of the original training dataset. Splitting the data is important, because we want to see how models perform on data that was not used to train them.
+How do we know how well our model is doing? A common practice to evaluate models is to evaluate them on splits of the original training dataset. Splitting the data is important, because we want to see how models perform on data that was not used to train them. We split into
 - The <em>training</em> dataset used to train the model
 - A held out <em>testing</em> dataset used to evaluate the final trained version of the model
 
@@ -338,6 +359,9 @@ Complete the `balance_classes` function by using the `imblearn.over_sampling.Ran
 
 
 # %%
+# # imblearn.over_sampling.RandomOverSampler?
+
+# %%
 ##########################
 ######## To Do ###########
 ##########################
@@ -357,7 +381,9 @@ def balance_classes(X, y):
     print(f"Starting distribution: {Counter(y)}")
 
     # Add your code using RandomOverSampler to over sample minority classes
-    X_res, y_res = ...
+    sampler = imblearn.over_sampling.RandomOverSampler()
+    X_res, y_res = sampler.fit_resample(X, y)
+
 
     print(f"Corrected distribution: {Counter(y_res)}")
 
@@ -398,6 +424,10 @@ X_test, y_test = balance_classes(X_test, y_test)
 print(f"Train shape: X {X_train.shape}, y {y_train.shape}")
 print(f"Test shape: X {X_test.shape}, y {y_test.shape}")
 
+# %%
+# TODO a little function to check the oversampling automatically would be nice
+# TODO: I had never heard about this library imblearn. Do we really want to let students read its docs? they don't even know scikit-learn yet, right?
+
 # %% [markdown]
 """
 ### One-hot encoding
@@ -415,7 +445,7 @@ For example, `5` is encoded as `[0, 0, 0, 0, 1, 0, 0]`
 
 #### Task 1.3
 
-In order to transform our data from integer to one-hot encoding, we will use `sklearn.label_processing.LabelBinarizer` ([docs](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.LabelBinarizer.html#sklearn.preprocessing.LabelBinarizer)). Take a look at the documentation to learn how to initialize and fit the `LabelBinarizer` and add your code below.
+In order to transform our data from integer to one-hot encoding, we will use `sklearn.preprocessing.LabelBinarizer` ([docs](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.LabelBinarizer.html#sklearn.preprocessing.LabelBinarizer)). Take a look at the documentation to learn how to initialize and fit the `LabelBinarizer` and add your code below.
 </div>
 """
 
@@ -434,7 +464,8 @@ lb = ...
 
 # Initialize and fit the LabelBinarizer
 lb = sklearn.preprocessing.LabelBinarizer()
-lb.fit(y_train)
+# TODO this should happen on the full dataset, `y_data`.
+lb.fit(y_data)
 
 # %%
 lb.classes_
@@ -588,7 +619,7 @@ r"""
 To train this model, we will use stochastic gradient descent. In its simplest version, this algorithm consists of the following steps:
 - Select several images from the training dataset at random
 - Compute the gradient of the loss function with respect to the weights, given the selected images
-- Update the weights using the update rule $\Delta W_{ij} \rightarrow \Delta W_{ij} - lr\frac{\partial loss}{\partial W_{ij}}$
+- Update the weights using the update rule $W_{ij} \rightarrow W_{ij} - lr\frac{\partial loss}{\partial W_{ij}}$
 
 Recall that the origin of this update rule is from multivariable calculus - the gradient tells us the direction in which the loss function increases the most. So to minimize the loss function we move in the opposite direction of the gradient.
 
@@ -687,12 +718,15 @@ setattr(LinearClassifier, "fit", fit)
 # %% [markdown]
 """
 We're ready to train our model!
+
+TODO Can we use tensorboard here to look at the loss? Or at least print the loss(es) after every epoch? And write the losses to a list or similar, such that students can cut after 10 epochs if they want.
 """
 
 # %%
 # %%time
 lc = LinearClassifier()
 loss = lc.fit(X_train, y_train, n_epochs=50, batch_size=16)
+# TODO here you overwrite the function `loss` from before
 
 # %% [markdown]
 """
@@ -716,6 +750,8 @@ def smooth(scalars, weight):
 
     return smoothed
 
+
+# %%
 
 # %%
 fig, ax = plt.subplots()
@@ -778,6 +814,7 @@ def benchmark_performance(y_true, y_pred):
     }
 
     return metrics
+# TODO  can we run this here already to get some resuls to look at
 
 
 # %% [markdown]
@@ -978,6 +1015,9 @@ Fill out the dictionary below with your parameter selection.
 """
 
 # %%
+# TODO maybe give already a few params to play around with, if not people risk to be completly lost.
+
+# %%
 ##########################
 ######## To Do ###########
 ##########################
@@ -1044,6 +1084,9 @@ random_rfc = sklearn.ensemble.RandomForestClassifier(
 )
 
 # %%
+# TODO can this conf matrix be a function to avoid duplicate code?
+
+# %%
 # %%time
 random_rfc.fit(X_train, y_train)
 
@@ -1087,6 +1130,8 @@ Classical machine learning methods often turn to manual feature engineering to e
 # %% [markdown]
 r"""
 ## Introduction to image filters
+
+TODO a good example would be a filter that does something, e.g. blurring, then ask for the identity as a sanity check if people got it.
 
 Image filters operate by taking a small kernel (or matrix) and applying it to each pixel in the image to compute a new value. As an example, this is the identity kernel 
 $$
@@ -1156,6 +1201,8 @@ Keep the following things you may want to keep in mind as you approach this prob
 ##########################
 
 # Put your code for testing filters here
+
+# TODO I didn't understand what to do here
 
 # %% tags=["solution"]
 filters = {
@@ -1303,7 +1350,7 @@ Your challenge now is to combine the features that you have explored with one of
 As you approach this task, you are encouraged to copy/paste code from earlier in the exercise and modify it as needed. Here's a rough outline of what you will need to do:
 - Build a new dataset with your selected filters. The easiest way to combine data from multiple filters is to concatenate images together along the axis corresponding to the image size. For example if our initial training data has the shape `(n_images, image_width * image_width)`, the new data will have the shape `(n_images, n_filters * image_width * image_width)`. Here's a code snippet to get you started:
 ```python
-# Select single image/channel
+# Select single image (10) and channel (0)
 im = X_data[10, ..., 0]
 gaus = skimage.filters.gaussian(im)
 lapl = skimage.filters.laplace(im)
