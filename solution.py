@@ -1119,17 +1119,15 @@ Classical machine learning methods often turn to manual feature engineering to e
 r"""
 ## Introduction to image filters
 
-TODO a good example would be a filter that does something, e.g. blurring, then ask for the identity as a sanity check if people got it.
+Image filters operate by taking a small kernel (or matrix) and applying it to each pixel in the image to compute a new value. For example, this 3x3 kernel will sharpen an image
 
-Image filters operate by taking a small kernel (or matrix) and applying it to each pixel in the image to compute a new value. As an example, this is the identity kernel
 $$
 \begin{bmatrix}
-    0 & 0 & 0 \\
-    0 & 1 & 0 \\
-    0 & 0 & 0 \\
+    0 & -1 & 0 \\
+    -1 & 5 & -1 \\
+    0 & -1 & 0 \\
 \end{bmatrix}
 $$
-which when applied to an image will not result in any changes to the data.
 
 Filters can produce a variety of effects on images depending on how the kernel is configured. This can range from blurring an image to extracting edges. Filtered images can contain data that is more informative to the model when distinguishing between classes.
 """
@@ -1180,7 +1178,7 @@ Keep the following things you may want to keep in mind as you approach this prob
 </div>
 """
 
-# %% jupyter={"outputs_hidden": true}
+# %%
 # skimage.filters.gaussian?
 
 # %%
