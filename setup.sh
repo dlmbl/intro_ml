@@ -1,11 +1,7 @@
-#!/usr/bin/env -S bash -i
-
 # Create mamba environment with ipykernel for jupyter
 mamba create -y --name 01_intro_ml python=3.10 \
     matplotlib numpy imageio scikit-learn scikit-image \
     pandas tqdm ipykernel
-mamba activate 01_intro_ml
-mamba deactivate
 
 # Activate base just in case
 mamba activate base

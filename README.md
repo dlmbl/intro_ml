@@ -6,7 +6,7 @@ Make sure that you are inside of the `intro_ml` folder by using the `cd` command
 
 Run the setup script to create the environment for this exercise and download the dataset.
 ```bash
-sh setup.sh
+source setup.sh
 ```
 
 Launch a jupyter environment
