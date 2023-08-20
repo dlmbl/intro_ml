@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.3'
-#       jupytext_version: 1.14.7
+#       jupytext_version: 1.15.0
 #   kernelspec:
 #     display_name: Python [conda env:01_intro_ml]
 #     language: python
@@ -16,12 +16,12 @@
 
 # %% [markdown]
 """
-# Introduction to Machine Learning  
+# Introduction to Machine Learning
 """
 
 # %% [markdown] id="JWC5tKyP3x1e"
 """
-Written by Morgan Schwartz and David Van Valen.  
+Written by Morgan Schwartz and David Van Valen.
 
 ---
 
@@ -30,7 +30,7 @@ In this exercise, we are going to follow the basic workflow that is the foundati
 2. Model configuration and training
 3. Model evaluation
 
-Along the way, we will implement a linear classier, test a random forest classifier and explore the role of feature engineering in traditional machine learning. 
+Along the way, we will implement a linear classifier, test a random forest classifier and explore the role of feature engineering in traditional machine learning.
 
 We are going to look at a collection of images of Jurkat cells published in the Broad Bioimage Collection ([BBBC048](https://bbbc.broadinstitute.org/BBBC048)). The cells were fixed and stained with PI (propidium iodide) to quantify DNA content and a MPM2 (mitotic protein monoclonal #2) antibody to identify mitotic cells. The goal is to predict the stage of the cell cycle from images like those shown below.
 
@@ -44,7 +44,7 @@ We are going to look at a collection of images of Jurkat cells published in the 
 <div class="alert alert-danger">
 Set your python kernel to <code>01_intro_ml</code>
 
-![](kernel-change.png)
+![](images/kernel-change.png)
 </div>
 """
 
@@ -60,22 +60,23 @@ from collections import Counter
 import os
 
 import imageio as iio
-import imblearn
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import skimage
 import sklearn
+import sklearn.model_selection
+import sklearn.ensemble
 import tqdm.auto
 
 # %% [markdown] id="rZ2jTjsd3x1g"
 """
 ## The supervised machine learning workflow
-Recall from class the conceptual workflow for a supervised machine learning project. 
-- First, we create a <em>training dataset</em>, a paired collection of raw data and labels where the labels contain information about the "insight" we wish to extract from the raw data. 
-- Once we have training data, we can then use it to train a <em>model</em>. The model is a mathematical black box - it takes in data and transforms it into an output. The model has some parameters that we can adjust to change how it performs this mapping. 
+Recall from class the conceptual workflow for a supervised machine learning project.
+- First, we create a <em>training dataset</em>, a paired collection of raw data and labels where the labels contain information about the "insight" we wish to extract from the raw data.
+- Once we have training data, we can then use it to train a <em>model</em>. The model is a mathematical black box - it takes in data and transforms it into an output. The model has some parameters that we can adjust to change how it performs this mapping.
 - Adjusting these parameters to produce outputs that we want is called training the model. To do this we need two things. First, we need a notion of what we want the output to look like. This notion is captured by a <em>loss function</em>, which compares model outputs and labels and produces a score telling us if the model did a "good" job or not on our given task. By convention, low values of the loss function's output (e.g. the loss) correspond to good performance and high values to bad performance. We also need an <em>optimization algorithm</em>, which is a set of rules for how to adjust the model parameters to reduce the loss
-- Using the training data, loss function, and optimization algorithm, we can then train the model 
+- Using the training data, loss function, and optimization algorithm, we can then train the model
 - Once the model is trained, we need to evaluate its performance to see how well it performs and what kinds of mistakes it makes. We can also perform this kind of monitoring during training (this is actually a standard practice).
 
 Because this workflow defines the lifecycle of most machine learning projects, this notebook is structured to go over each of these steps while constructing a linear classifier.
@@ -90,24 +91,24 @@ During the initial setup of this exercise, we downloaded the data and unzipped t
 
 # %%
 data_dir = "data/CellCycle"
-os.listdir(data_dir)
+sorted(os.listdir(data_dir))
 
 # %% [markdown]
 """
-The command above should generate the following output. Order does not matter, but you should see the same files and folders. If you see something different, please check that the `setup.sh` script ran correctly.
+The command above should generate the following output. If you see something different, please check that the `setup.sh` script ran correctly.
 ```
-['img.lst~',
+['66.lst~',
  'Anaphase',
- 'Prophase',
- 'img.lst',
- 'S',
- '66.lst~',
  'G1',
- 'Metaphase',
  'G2',
- 'Telophase']
- ```
- 
+ 'Metaphase',
+ 'Prophase',
+ 'S',
+ 'Telophase',
+ 'img.lst',
+ 'img.lst~']
+```
+
 The metadata for each file is stored in `img.lst` so we will first load this information to inform how we load the rest of the dataset.
 """
 
@@ -171,7 +172,7 @@ ax[2].set_title("MPM2")
 
 # %% [markdown]
 """
-Now we can load all of the images into the dataset. We will want to load each of the three channels for each image and create an array with the shape (w, h, ch). Then we will combine all images in the dataset into a single array.
+Now we can load all of the images into a dataset. We will want to load each of the three channels for each image and create an array with the shape (w, h, ch). Then we will combine all images in the dataset into a single array.
 """
 
 # %%
@@ -203,7 +204,7 @@ print("y shape:", y_data.shape)
 
 # %% [markdown] id="WG4mmJ173x1h"
 """
-In the previous cell, you probably observed that there are 4 dimensions rather than the 3 you might have been expecting. This is because while each image is (66, 66, 3), the full dataset has many images. The different images are stacked along the first dimension. The full size of the training images is (# images, 66, 66, 3) - the first dimension is often called the batch dimension.
+In the previous cell, you probably observed that there are 4 dimensions rather than the 3 you might have been expecting. This is because while each image is (66, 66, 3), the full dataset has many images. The different images are stacked along the first dimension. The full size of the training images is (# images, 66, 66, 3).
 """
 
 # %% [markdown]
@@ -222,9 +223,13 @@ for c in np.unique(y_data):
     ax[0].set_ylabel(class_lut[c])
 
     # Plot each of the three channels
-    for j, ch in enumerate(["phase", "PI", "MPM2"]):
+    for j, ch in enumerate(["phase contrast", "PI", "MPM2"]):
         ax[j].imshow(X_data[i, ..., j], cmap="Greys_r")
         ax[j].set_title(ch)
+        ax[j].xaxis.set_tick_params(labelbottom=False)
+        ax[j].yaxis.set_tick_params(labelleft=False)
+        ax[j].set_xticks([])
+        ax[j].set_yticks([])
 
 # %% [markdown] id="2D_YhVir3x1i"
 """
@@ -251,11 +256,10 @@ print(X_flat.shape)
 <div class="alert alert-block alert-info">
 
 #### Task 1.1
-    
-Let's check the balance of classes in this dataset. There are at least three ways you could do this. Pick one to try.
-    
-- Use matplotlib to create a histogram (`plt.hist`, [see docs](https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.hist.html))
-- Count the number of items in each class using `np.count_nonzero` ([see docs](https://numpy.org/doc/stable/reference/generated/numpy.count_nonzero.html)).
+
+Let's check the balance of classes in this dataset (stored in `y_data`). There are at least three ways you could do this. Pick one to try.
+
+- Count the number of items in each class using `np.unique` ([see docs](https://numpy.org/doc/stable/reference/generated/numpy.unique.html)).
 - Use the `Counter` object which is imported from `collections` ([see docs](https://docs.python.org/3/library/collections.html#collections.Counter))
 
 </div>
@@ -275,19 +279,12 @@ Let's check the balance of classes in this dataset. There are at least three way
 ##########################
 
 # Numpy option
-for i in range(7):
-    print("Class {}:".format(i), np.count_nonzero(y_data == i))
+np.unique(y_data, return_counts=True)
 
 print("------\n")
 
 # Counter option
 print(Counter(y_data))
-
-print("------\n")
-
-# Matplotlib option
-counts, edges, bars = plt.hist(y_data, bins=np.arange(0, 8))
-_ = plt.bar_label(bars)
 
 # %% [markdown]
 """
@@ -297,7 +294,7 @@ This dataset is highly inbalanced so we will want to correct the class balance b
 # %% [markdown] id="l2yrGjOL3x1j"
 """
 ### Split the training dataset into training and testing datasets
-How do we know how well our model is doing? A common practice to evaluate models is to evaluate them on splits of the original training dataset. Splitting the data is important, because we want to see how models perform on data that was not used to train them.
+How do we know how well our model is doing? A common practice to evaluate models is to evaluate them on splits of the original training dataset. Splitting the data is important, because we want to see how models perform on data that was not used to train them. We split into
 - The <em>training</em> dataset used to train the model
 - A held out <em>testing</em> dataset used to evaluate the final trained version of the model
 
@@ -316,11 +313,11 @@ X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
 """
 ### Correct class imbalance
 
-![](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*6DlvkNY2TlFw2Veyvb4qdQ.jpeg) 
+![](https://miro.medium.com/v2/resize:fit:1400/format:webp/1*6DlvkNY2TlFw2Veyvb4qdQ.jpeg)
 
 (*Image by [Angelica Lo Duca](https://towardsdatascience.com/how-to-balance-a-dataset-in-python-36dff9d12704)*)
 
-There are several ways to correct class imbalance. In this example, we are going to oversample underrepresented classes until we have an equal number of samples for each class. 
+There are several ways to correct class imbalance. In this example, we are going to oversample underrepresented classes until we have an equal number of samples for each class.
 
 It's important to note that we need to correct class imbalance after generating the train/test split in our dataset. When we are oversampling, we want to prevent samples that are used in our training dataset from also appearing in our testing dataset.
 """
@@ -331,37 +328,60 @@ It's important to note that we need to correct class imbalance after generating 
 
 #### Task 1.2
 
-Complete the `balance_classes` function by using the `imblearn.over_sampling.RandomOverSampler` ([docs](https://imbalanced-learn.org/stable/references/generated/imblearn.over_sampling.RandomOverSampler.html)) from [`imblearn`](https://imbalanced-learn.org/stable/index.html) to correct class balance.
+Complete the `balance_classes` function following the structure outlined in the comments. You can use `sklearn.utils.resample` to generate a new random set of `n_samples`.
+    
+Hint: You may want to use boolean indexing to select subsets of arrays. For example we can select all samples in class 3 with the following:
+```python
+xx = X_data[y_data == 3]
+yy = y_data[y_data == 3]
+```
 
 </div>
 """
 
 
 # %%
+# sklearn.utils.resample?
+
+# %% tags=["solution"]
 ##########################
 ######## To Do ###########
 ##########################
 
-
 def balance_classes(X, y):
-    """Uses RandomOverSampler to correct class imbalance
-
+    """For a given multiclass dataset, upsample underrepresented classes
+    to match the number of samples in the majority class
+    
     Args:
         X (np.array): Array of raw data
         y (np.array): Array of class labels
-
+        
     Returns:
         np.array: X
         np.array: y
     """
-    print(f"Starting distribution: {Counter(y)}")
+    classes = np.unique(y)
+    
+    # Identify which class has the most samples
+    # Hint: use your code for counting the number of samples in each class
+    maj_samples = ...
+    maj_id = ...
+    
+    # Collect new samples in an array
+    new_X, new_y = [], []
+    for c in classes:
+        # Resample the minority classes to match majority number of samples using sklearn.utils.resample
+        
+        # Store the new samples in new_X and new_y
 
-    # Add your code using RandomOverSampler to over sample minority classes
-    X_res, y_res = ...
+    # Concatenate the list of arrays to create a single array
+    new_X = np.concatenate(new_X)
+    new_y = np.concatenate(new_y)
+    
+    # Shuffle arrays to randomize sample order
+    new_X, new_y = sklearn.utils.shuffle(new_X, new_y)
 
-    print(f"Corrected distribution: {Counter(y_res)}")
-
-    return X_res, y_res
+    return new_X, new_y
 
 
 # %% tags=["solution"]
@@ -369,27 +389,48 @@ def balance_classes(X, y):
 ####### Solution #########
 ##########################
 
-
 def balance_classes(X, y):
-    """Uses RandomOverSampler to correct class imbalance
-
+    """For a given multiclass dataset, upsample underrepresented classes
+    to match the number of samples in the majority class
+    
     Args:
         X (np.array): Array of raw data
         y (np.array): Array of class labels
-
+        
     Returns:
         np.array: X
         np.array: y
     """
-    print(f"Starting distribution: {Counter(y)}")
+    classes = np.unique(y)
+    
+    # Identify which class has the most samples
+    # Hint: use your code for counting the number of samples in each class
+    cls, n = np.unique(y, return_counts=True)
+    maj_samples = max(n)
+    maj_id = np.where(n == maj_samples)[0]
+    
+    # Collect new samples in an array
+    new_X, new_y = [], []
+    for c in classes:
+        if c == maj_id:
+            xx = X[y == c]
+            yy = y[y == c]
+        else:
+            # Resample the minority classes to match majority number of samples using sklearn.utils.resample
+            xx, yy = sklearn.utils.resample(X[y == c], y[y == c], n_samples=maj_samples)
+        
+        # Store the new samples in new_X and new_y
+        new_X.append(xx)
+        new_y.append(yy)
 
-    # Add your code using RandomOverSampler to over sample minority classes
-    ros = imblearn.over_sampling.RandomOverSampler()
-    X_res, y_res = ros.fit_resample(X, y)
+    # Concatenate the list of arrays to create a single array
+    new_X = np.concatenate(new_X)
+    new_y = np.concatenate(new_y)
+    
+    # Shuffle arrays to randomize sample order
+    new_X, new_y = sklearn.utils.shuffle(new_X, new_y)
 
-    print(f"Corrected distribution: {Counter(y_res)}")
-
-    return X_res, y_res
+    return new_X, new_y
 
 
 # %%
@@ -398,13 +439,25 @@ X_test, y_test = balance_classes(X_test, y_test)
 print(f"Train shape: X {X_train.shape}, y {y_train.shape}")
 print(f"Test shape: X {X_test.shape}, y {y_test.shape}")
 
+
+# %%
+# Run this cell to check your class balance code
+def check_balance(y):
+    cls, n = np.unique(y, return_counts=True)
+    max_n = max(n)
+    if not np.all(n == max_n):
+        raise ValueError('Sample is not balanced!')
+        
+check_balance(y_train)
+check_balance(y_test)
+
 # %% [markdown]
 """
 ### One-hot encoding
 
-Currently, our data have labels that range from 0 to 6. While we know that each of these 7 classes is comparable, this encoding implies that some classes have more weight than others. Alternatively, we want to use a binary encoding so that all classes are seen as equivalent by the model. 
+Currently, our data have labels that range from 0 to 6. While we know that each of these 7 classes is comparable, this encoding implies that some classes have more weight than others. Alternatively, we want to use a binary encoding so that all classes are seen as equivalent by the model.
 
-Instead of representing each label with a number from 0 to 6, we will use an array of length 7 where each position in the array is a binary value encoding the class. 
+Instead of representing each label with a number from 0 to 6, we will use an array of length 7 where each position in the array is a binary value encoding the class.
 
 For example, `5` is encoded as `[0, 0, 0, 0, 1, 0, 0]`
 """
@@ -415,7 +468,7 @@ For example, `5` is encoded as `[0, 0, 0, 0, 1, 0, 0]`
 
 #### Task 1.3
 
-In order to transform our data from integer to one-hot encoding, we will use `sklearn.label_processing.LabelBinarizer` ([docs](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.LabelBinarizer.html#sklearn.preprocessing.LabelBinarizer)). Take a look at the documentation to learn how to initialize and fit the `LabelBinarizer` and add your code below.
+In order to transform our data from integer to one-hot encoding, we will use `sklearn.preprocessing.LabelBinarizer` ([docs](https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.LabelBinarizer.html#sklearn.preprocessing.LabelBinarizer)). Take a look at the documentation to learn how to initialize and fit the `LabelBinarizer` and add your code below.
 </div>
 """
 
@@ -434,7 +487,7 @@ lb = ...
 
 # Initialize and fit the LabelBinarizer
 lb = sklearn.preprocessing.LabelBinarizer()
-lb.fit(y_train)
+lb.fit(y_data)
 
 # %%
 lb.classes_
@@ -470,18 +523,13 @@ y_test = lb.transform(y_test)
 # %% [markdown]
 """
 <div class="alert alert-success">
-    
+
 ## Checkpoint 1
 
 We have completed the data wrangling phase of this exercise
 - Reshaping the data to fit our model
 - Balancing classes
 - Applying one hot encoding
-    
-### Bonus
-
-If you have extra time, explore the `imblearn` [docs](https://imbalanced-learn.org/stable/user_guide.html). What other sampling methods are available? Why might one be better than another?
-
 </div>
 """
 
@@ -499,7 +547,7 @@ The linear classifier produces class scores that are a linear function of the pi
 ### Create the matrix of weights
 Properly initializing weights is essential for getting deep learning methods to work correctly. We are going to start with weights initizalized with zeros, but will invesigate other methods later in the exercise.
 
-Lets create the linear classifier using object oriented programming, which will help with organization. 
+Lets create the linear classifier using object oriented programming, which will help with organization.
 """
 
 
@@ -572,14 +620,14 @@ for i, j in enumerate(np.random.randint(X_test.shape[0], size=(8,))):
 <div class="alert alert-block alert-info">
 
 #### Task 2.1
-What do you notice about the initial results of the model? 
+What do you notice about the initial results of the model?
 
 </div>
 """
 
 # %% [markdown] tags=["solution"]
 """
-The model exclusively predicts a class of 0. This result makes sense given that we initialized the model with weights of 0. 
+The model exclusively predicts a class of 0. This result makes sense given that we initialized the model with weights of 0.
 """
 
 # %% [markdown] id="jv4Rc_xS3x1l"
@@ -588,7 +636,7 @@ r"""
 To train this model, we will use stochastic gradient descent. In its simplest version, this algorithm consists of the following steps:
 - Select several images from the training dataset at random
 - Compute the gradient of the loss function with respect to the weights, given the selected images
-- Update the weights using the update rule $\Delta W_{ij} \rightarrow \Delta W_{ij} - lr\frac{\partial loss}{\partial W_{ij}}$
+- Update the weights using the update rule $W_{ij} \rightarrow W_{ij} - lr\frac{\partial loss}{\partial W_{ij}}$
 
 Recall that the origin of this update rule is from multivariable calculus - the gradient tells us the direction in which the loss function increases the most. So to minimize the loss function we move in the opposite direction of the gradient.
 
@@ -675,6 +723,8 @@ def fit(self, X_train, y_train, n_epochs, batch_size=1, learning_rate=1e-5):
             if np.count_nonzero(np.isnan(self.W)) != 0:
                 print(epoch, batch)
                 break
+                
+        print('Final loss', loss)
 
     return loss_list
 
@@ -692,7 +742,7 @@ We're ready to train our model!
 # %%
 # %%time
 lc = LinearClassifier()
-loss = lc.fit(X_train, y_train, n_epochs=50, batch_size=16)
+loss_log = lc.fit(X_train, y_train, n_epochs=10, batch_size=16)
 
 # %% [markdown]
 """
@@ -719,7 +769,7 @@ def smooth(scalars, weight):
 
 # %%
 fig, ax = plt.subplots()
-ax.plot(smooth(loss, 0.9))
+ax.plot(smooth(loss_log, 0.9))
 ax.set_ylabel("loss")
 
 # %% [markdown] id="Hh-GWNb-3x1m"
@@ -729,7 +779,6 @@ ax.set_ylabel("loss")
 
 # %% colab={"base_uri": "https://localhost:8080/", "height": 1000} id="T_wsv4zW3x1m" outputId="1d5928f9-1acb-43ec-8c58-ad756e538171"
 # Visualize some predictions
-
 fig, axes = plt.subplots(2, 4, figsize=(20, 10))
 for i, j in enumerate(np.random.randint(X_test.shape[0], size=(8,))):
     # Get an example image
@@ -837,8 +886,8 @@ def plot_metrics(metrics, name, ax=None):
     cb = ax.imshow(metrics["cm_norm"], cmap="Greens", vmin=0, vmax=1)
 
     classes = np.arange(metrics["cm"].shape[0])
-    plt.xticks(range(len(classes)), class_lut)
-    plt.yticks(range(len(classes)), class_lut)
+    ax.set_xticks(range(len(classes)), class_lut)
+    ax.set_yticks(range(len(classes)), class_lut)
     ax.set_xlabel("Predicted Label")
     ax.set_ylabel("True Label")
 
@@ -864,50 +913,59 @@ def plot_metrics(metrics, name, ax=None):
 
 
 # %%
-# Generate predictions and metrics for training data
-y_pred = lc.predict(X_train)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_train, axis=-1)
-lc_train_metrics = benchmark_performance(y_true, y_pred)
+def summarize_performance(model, X_train, y_train, X_test, y_test, title=''):
+    """Quick function to generate predictions on the train and test splits, 
+    benchmark and plot the results
+    """
+    
+    # Generate predictions and metrics for training data
+    y_pred = model.predict(X_train)
+    # Convert from one hot encoding to original class labels
+    y_pred = np.argmax(y_pred, axis=-1)
+    y_true = np.argmax(y_train, axis=-1)
+    train_metrics = benchmark_performance(y_true, y_pred)
 
-# Generate predictions and metrics for test data
-y_pred = lc.predict(X_test)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_test, axis=-1)
-lc_test_metrics = benchmark_performance(y_true, y_pred)
+    # Generate predictions and metrics for test data
+    y_pred = model.predict(X_test)
+    # Convert from one hot encoding to original class labels
+    y_pred = np.argmax(y_pred, axis=-1)
+    y_true = np.argmax(y_test, axis=-1)
+    test_metrics = benchmark_performance(y_true, y_pred)
 
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
+    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
 
-plot_metrics(lc_train_metrics, "Linear Classifier Training", ax[0])
-plot_metrics(lc_test_metrics, "Linear Classifier Testing", ax[1])
+    plot_metrics(train_metrics, f"{title} Training", ax[0])
+    plot_metrics(test_metrics, f"{title} Testing", ax[1])
+
+
+# %%
+summarize_performance(lc, X_train, y_train, X_test, y_test, "Linear Classifier")
 
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    
+
 #### Task 2.3
 
 What do you notice about the results after training the model?
-    
+
 </div>
 """
 
 # %% [markdown]
 """
 <div class="alert alert-block alert-success">
-    
+
 ## Checkpoint 2
-    
+
 We have written a simple linear classifier, trained it and considered a few ways to evaluate model performance. Next we'll look at some other machine learning methods for classification.
-    
+
 </div>
 """
 
 # %% [markdown]
 """
-# Part B: Random Forest Classifier 
+# Part B: Random Forest Classifier
 
 Decisions trees are a useful tool for generating interpretable classification results. As shown in the example below, trees are constructed such that the data is split at each node according to a feature in the data. At the bottom of the tree, the leafs should correspond to a single class such that we can predict the class of the data depending on which leaf it is associated with.
 
@@ -930,41 +988,24 @@ rfc = sklearn.ensemble.RandomForestClassifier()
 rfc.fit(X_train, y_train)
 
 # %%
-# Generate predictions and metrics for training data
-y_pred = rfc.predict(X_train)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_train, axis=-1)
-rfc_train_metrics = benchmark_performance(y_true, y_pred)
-
-# Generate predictions and metrics for test data
-y_pred = rfc.predict(X_test)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_test, axis=-1)
-rfc_test_metrics = benchmark_performance(y_true, y_pred)
-
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-
-plot_metrics(rfc_train_metrics, "Random Forest Classifier Training", ax[0])
-plot_metrics(rfc_test_metrics, "Random Forest Classifier Testing", ax[1])
+summarize_performance(rfc, X_train, y_train, X_test, y_test, "Random Forest Classifier")
 
 # %% [markdown]
 """
 ## Parameter Optimization
 
-Our initial random forest classifier was trained using the default parameters provided by `sklearn`, but these often won't be the right values for our problem. In many situations, we may have some idea what a reasonable parameter value might be, but most of the time we will need to perform a grid search to select the optimal value. `sklearn` provides a class `RandomizedSearchCV` ([docs](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html)) to perform a random search over a provided grid of parameters, which we can use to improve the performance of the random forest classifier. 
+Our initial random forest classifier was trained using the default parameters provided by `sklearn`, but these often won't be the right values for our problem. In many situations, we may have some idea what a reasonable parameter value might be, but most of the time we will need to perform a grid search to select the optimal value. `sklearn` provides a class `RandomizedSearchCV` ([docs](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.RandomizedSearchCV.html)) to perform a random search over a provided grid of parameters, which we can use to improve the performance of the random forest classifier.
 """
 
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    
+
 #### Task 3.1
 
-For this task, your job is to select a set of parameters to use for optimization. You should start by looking at the [docs](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html) for `RandomForestClassifier` to see what parameters are available. For each parameter that you choose to optimize, think about what range of values you should try. 
+For this task, your job is to select a set of parameters to use for optimization. You should start by looking at the [docs](https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html) for `RandomForestClassifier` to see what parameters are available. For each parameter that you choose to optimize, think about what range of values you should try.
 
-For example:    
+For example:
 ```
 parameter_grid = {
     'criterion': ['gini', 'entropy', 'log_loss'],
@@ -973,7 +1014,7 @@ parameter_grid = {
 ```
 
 Fill out the dictionary below with your parameter selection.
-    
+
 </div>
 """
 
@@ -982,7 +1023,14 @@ Fill out the dictionary below with your parameter selection.
 ######## To Do ###########
 ##########################
 
-parameter_grid = {}
+# Here's a few possible parameter types to consider, but there are more possibilities
+
+parameter_grid = {
+    "n_estimators": ...,
+    "criterion": ...,
+    "max_depth": ...,
+    "min_samples_leaf": ...
+}
 
 # %% tags=["solution"]
 ##########################
@@ -1012,25 +1060,25 @@ rf_random.fit(X_train, y_train)
 print(rf_random.best_params_)
 ```
 
-However to save on time we are going to distribute the work among the group. 
+However to save on time we are going to distribute the work among the group.
 
 <div class="alert alert-block alert-success">
-    
+
 ## Checkpoint 3
-    
+
 We'll come back together as a group to discuss the parameter space that we want to explore and to sign up for parameter configurations.
-    
+
 </div>
 """
 
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    
+
 #### Task 4.1
 
 Configure the `RandomForestClassifier` below with a set of parameters according to the parameter space we discussed during the previous checkpoint. Then train and evaluate your classifier!
-    
+
 </div>
 """
 
@@ -1047,33 +1095,16 @@ random_rfc = sklearn.ensemble.RandomForestClassifier(
 # %%time
 random_rfc.fit(X_train, y_train)
 
-# Generate predictions and metrics for training data
-y_pred = random_rfc.predict(X_train)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_train, axis=-1)
-rfc_train_metrics = benchmark_performance(y_true, y_pred)
-
-# Generate predictions and metrics for test data
-y_pred = random_rfc.predict(X_test)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_test, axis=-1)
-rfc_test_metrics = benchmark_performance(y_true, y_pred)
-
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-
-plot_metrics(rfc_train_metrics, "Random Forest Classifier Training", ax[0])
-plot_metrics(rfc_test_metrics, "Random Forest Classifier Testing", ax[1])
+summarize_performance(rfc, X_train, y_train, X_test, y_test, "Random Forest Classifier")
 
 # %% [markdown]
 """
 <div class="alert alert-block alert-success">
-    
+
 ## Checkpoint 4
-    
+
 Report the performance of your model on the test split in the group spreadsheet (check Element for a link). We'll discuss what seems to be working best as a group.
-    
+
 </div>
 """
 
@@ -1088,15 +1119,15 @@ Classical machine learning methods often turn to manual feature engineering to e
 r"""
 ## Introduction to image filters
 
-Image filters operate by taking a small kernel (or matrix) and applying it to each pixel in the image to compute a new value. As an example, this is the identity kernel 
+Image filters operate by taking a small kernel (or matrix) and applying it to each pixel in the image to compute a new value. For example, this 3x3 kernel will sharpen an image
+
 $$
 \begin{bmatrix}
-    0 & 0 & 0 \\
-    0 & 1 & 0 \\
-    0 & 0 & 0 \\
+    0 & -1 & 0 \\
+    -1 & 5 & -1 \\
+    0 & -1 & 0 \\
 \end{bmatrix}
 $$
-which when applied to an image will not result in any changes to the data.
 
 Filters can produce a variety of effects on images depending on how the kernel is configured. This can range from blurring an image to extracting edges. Filtered images can contain data that is more informative to the model when distinguishing between classes.
 """
@@ -1156,6 +1187,18 @@ Keep the following things you may want to keep in mind as you approach this prob
 ##########################
 
 # Put your code for testing filters here
+
+# Hint
+# Pick a test image
+im = ...
+
+# Apply a filter 
+filtered = ...
+
+# Plot the before and after
+fig, ax = plt.subplots(1, 2)
+ax[0].imshow(im, cmap='Greys_r')
+ax[1].imshow(filtered, cmap='Greys_r')
 
 # %% tags=["solution"]
 filters = {
@@ -1295,15 +1338,15 @@ for name, fxn in candidates.items():
 # %% [markdown]
 """
 <div class="alert alert-block alert-info">
-    
+
 #### Task 5.2
 
 Your challenge now is to combine the features that you have explored with one of the two models we've trained so far. It's up to you to select a set of features and model design that you think will produce the best results. We'll compare results as a group at the end.
-    
+
 As you approach this task, you are encouraged to copy/paste code from earlier in the exercise and modify it as needed. Here's a rough outline of what you will need to do:
 - Build a new dataset with your selected filters. The easiest way to combine data from multiple filters is to concatenate images together along the axis corresponding to the image size. For example if our initial training data has the shape `(n_images, image_width * image_width)`, the new data will have the shape `(n_images, n_filters * image_width * image_width)`. Here's a code snippet to get you started:
 ```python
-# Select single image/channel
+# Select single image (10) and channel (0)
 im = X_data[10, ..., 0]
 gaus = skimage.filters.gaussian(im)
 lapl = skimage.filters.laplace(im)
@@ -1318,14 +1361,14 @@ ims = np.concatenate([im, gaus, lapl], axis=-1)
 ```
 
 - Finish assembling your dataset by splitting into train/test split (`sklearn.model_selection.train_test_split`), balancing classes (`imblearn.over_sampling.RandomOverSampler`) and one hot encoding (`sklearn.label_processing.LabelBinarizer`)
-    
+
 - Configure your model. If you choose the `LinearClassifier` make sure you update the `image_size` parameter to match the dimensions of your new dataset.
-    
+
 - Train and evaluate the results
 </div>
 """
 
-# %%
+# %% tags=["solution"]
 # Generate filtered data
 frangi = np.stack([skimage.filters.frangi(im) for im in X_data[..., 0]])
 sobel = np.stack([skimage.filters.sobel(im) for im in X_data[..., 0]])
@@ -1337,63 +1380,46 @@ Xs = [
 X_filtered = np.concatenate(Xs, axis=-1)
 X_filtered.shape
 
-# %% id="hLQUiSoj3x1j"
+# %% id="hLQUiSoj3x1j" tags=["solution"]
 # Split the dataset into training, validation, and testing splits
 seed = 10
 train_size = 0.8
 X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-    X_flat, y_data, train_size=train_size, random_state=seed
+    X_filtered, y_data, train_size=train_size, random_state=seed
 )
 
-# %%
+# %% tags=["solution"]
 # Balance classes using the same function as above
 X_train, y_train = balance_classes(X_train, y_train)
 X_test, y_test = balance_classes(X_test, y_test)
 print(f"Train shape: X {X_train.shape}, y {y_train.shape}")
 print(f"Test shape: X {X_test.shape}, y {y_test.shape}")
 
-# %%
+# %% tags=["solution"]
 # One hot encoding using the same LabelBinarizer object
 y_train = lb.transform(y_train)
 y_test = lb.transform(y_test)
 
-# %%
+# %% tags=["solution"]
 # %%time
 # Initialize linear classifier with the new data shape
 lcf = LinearClassifier(image_size=X_train.shape[1])
-loss = lcf.fit(X_train, y_train, n_epochs=50, batch_size=16)
+loss_log = lcf.fit(X_train, y_train, n_epochs=50, batch_size=16)
 
-# %%
+# %% tags=["solution"]
 fig, ax = plt.subplots()
-ax.plot(smooth(loss, 0.9))
+ax.plot(smooth(loss_log, 0.9))
 ax.set_ylabel("loss")
 
 # %%
-# Generate predictions and metrics for training data
-y_pred = lcf.predict(X_train)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_train, axis=-1)
-lcf_train_metrics = benchmark_performance(y_true, y_pred)
-
-# Generate predictions and metrics for test data
-y_pred = lcf.predict(X_test)
-# Convert from one hot encoding to original class labels
-y_pred = np.argmax(y_pred, axis=-1)
-y_true = np.argmax(y_test, axis=-1)
-lcf_test_metrics = benchmark_performance(y_true, y_pred)
-
-fig, ax = plt.subplots(1, 2, figsize=(10, 4))
-
-plot_metrics(lcf_train_metrics, "Filtered Linear Classifier Training", ax[0])
-plot_metrics(lcf_test_metrics, "Filtered Linear Classifier Testing", ax[1])
+summarize_performance(rfc, X_train, y_train, X_test, y_test, "Filtered Linear Classifier")
 
 # %% [markdown]
 """
 <div class="alert alert-block alert-success">
-    
+
 ## Checkpoint 5
-    
+
 Share the results of your model on the spreadsheet (see Element for the link) and we'll compare results as a group.
 </div>
 """
