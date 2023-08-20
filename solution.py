@@ -343,7 +343,7 @@ yy = y_data[y_data == 3]
 # %%
 # sklearn.utils.resample?
 
-# %% tags=["solution"]
+# %%
 ##########################
 ######## To Do ###########
 ##########################
@@ -373,7 +373,7 @@ def balance_classes(X, y):
         # Resample the minority classes to match majority number of samples using sklearn.utils.resample
         
         # Store the new samples in new_X and new_y
-
+        ...
     # Concatenate the list of arrays to create a single array
     new_X = np.concatenate(new_X)
     new_y = np.concatenate(new_y)
@@ -577,7 +577,7 @@ There is an excellent [derivation of the softmax function](https://towardsdatasc
 """
 
 
-# %% tags=["solution"]
+# %%
 def predict(self, X, epsilon=1e-5):
     # Matrix multiplication of X by the weights
     y = np.matmul(X, self.W.T)
@@ -1411,8 +1411,8 @@ fig, ax = plt.subplots()
 ax.plot(smooth(loss_log, 0.9))
 ax.set_ylabel("loss")
 
-# %%
-summarize_performance(rfc, X_train, y_train, X_test, y_test, "Filtered Linear Classifier")
+# %% tags=["solution"]
+summarize_performance(lcf, X_train, y_train, X_test, y_test, "Filtered Linear Classifier")
 
 # %% [markdown]
 """
