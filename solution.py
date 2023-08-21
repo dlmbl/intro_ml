@@ -1103,7 +1103,7 @@ summarize_performance(rfc, X_train, y_train, X_test, y_test, "Random Forest Clas
 
 ## Checkpoint 4
 
-Report the performance of your model on the test split in the group spreadsheet (check Element for a link). We'll discuss what seems to be working best as a group.
+Report the performance of your model on the test split in the group spreadsheet (check the course chat for a link). We'll discuss what seems to be working best as a group.
 
 </div>
 """
@@ -1337,9 +1337,21 @@ for name, fxn in candidates.items():
 
 # %% [markdown]
 """
+<div class="alert alert-block alert-success">
+
+## Checkpoint 6 
+
+When you have selected a few filters that you think are interesting please post a screenshot to the group chat. 
+
+We'll take a look at the results as a group and then move on to training a model on filtered data.
+</div>
+"""
+
+# %% [markdown]
+"""
 <div class="alert alert-block alert-info">
 
-#### Task 5.2
+#### Task 6.1
 
 Your challenge now is to combine the features that you have explored with one of the two models we've trained so far. It's up to you to select a set of features and model design that you think will produce the best results. We'll compare results as a group at the end.
 
@@ -1418,8 +1430,8 @@ summarize_performance(lcf, X_train, y_train, X_test, y_test, "Filtered Linear Cl
 """
 <div class="alert alert-block alert-success">
 
-## Checkpoint 5
+## Checkpoint 7
 
-Share the results of your model on the spreadsheet (see Element for the link) and we'll compare results as a group.
+Share the results of your model on the spreadsheet (see the course chat for the link) and we'll compare results as a group.
 </div>
 """
